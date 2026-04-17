@@ -1,8 +1,11 @@
 name: 飞书下班祝福
 
 on:
+  # 每5分钟触发一次
   schedule:
-    - cron: '55 9 * * 1-5'
+    - cron: '*/5 * * * *'
+  
+  # 手动触发
   workflow_dispatch:
 
 jobs:
