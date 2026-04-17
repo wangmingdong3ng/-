@@ -109,7 +109,9 @@ jobs:
           echo ""
 
           echo "群聊列表："
-          echo "$RESPONSE" | jq -r '.data.items[] | "  - \(.name // \"未命名\") (ID: \(.chat_id))"'
+          echo "$RESPONSE" | jq -r '.data.items[] | "  - \(.name // "未命名") (ID: \(.chat_id))"' | while read line; do
+            echo "$line"
+          done
 
       - name: 发送消息到群聊
         id: send_messages
@@ -135,7 +137,7 @@ jobs:
           SUCCESS_COUNT=0
           FAIL_COUNT=0
 
-          for chat in $CHATS; do
+          while IFS= read -r chat; do
             chat_data=$(echo "$chat" | base64 -d)
             chat_id=$(echo "$chat_data" | jq -r '.chat_id')
             chat_name=$(echo "$chat_data" | jq -r '.name // "未命名"')
@@ -162,7 +164,7 @@ jobs:
             fi
 
             echo ""
-          done
+          done <<< "$CHATS"
 
           echo "================================"
           echo "📊 发送完成"
