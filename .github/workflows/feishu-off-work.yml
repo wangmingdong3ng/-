@@ -11,6 +11,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: 安装 jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
       - name: 检查时间
         run: |
           echo "📅 当前时间信息："
@@ -133,7 +138,7 @@ jobs:
           for chat in $CHATS; do
             chat_data=$(echo "$chat" | base64 -d)
             chat_id=$(echo "$chat_data" | jq -r '.chat_id')
-            chat_name=$(echo "$chat_data" | jq -r '.name // \"未命名\"')
+            chat_name=$(echo "$chat_data" | jq -r '.name // "未命名"')
 
             echo "📤 发送到「$chat_name」 (ID: $chat_id)..."
 
@@ -177,4 +182,3 @@ jobs:
           echo "================================"
           echo "✅ 执行完成"
           echo "================================"
-          
