@@ -271,11 +271,11 @@ def create_card(message, is_weekend):
     
     # 根据工作日/周末选择不同的主题色和图标
     if is_weekend:
-        title = "🎉 周末祝福"
+        title = "🎉 下班啦！快跑呀！！！"
         color = "green"
         icon = "🌞"
     else:
-        title = "🌅 下班祝福"
+        title = "🌅 下班啦！快跑呀！！！"
         color = "blue"
         icon = "💼"
     
