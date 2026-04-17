@@ -3,7 +3,54 @@ import os
 import sys
 import json
 import requests
+import random
 from datetime import datetime
+
+# 文案库
+WORKDAY_MESSAGES = [
+    "🌅 又是充实的一天，辛苦了！愿你傍晚时光轻松惬意！",
+    "💼 工作完成得很好，现在该好好休息了！",
+    "☕ 今天的努力都值得，来杯咖啡放松一下吧！",
+    "🚗 下班路上注意安全，记得吃晚饭！",
+    "📚 晚上记得留点时间给自己，做自己喜欢的事！",
+    "🎶 今晚想听什么歌？让音乐治愈你！",
+    "🌙 早睡早起，明天又是元气满满的一天！",
+    "💧 多喝热水，照顾好自己！",
+    "🍀 愿你今晚做个好梦！",
+    "🌹 辛苦了，给自己一个拥抱吧！",
+    "🎮 今晚想玩什么游戏？放松一下！",
+    "📺 看一部好电影，享受休闲时光！",
+    "🏃 散步或运动一下，释放压力！",
+    "🍲 今晚吃顿好的，犒劳自己！",
+    "🌸 生活不止工作，还有诗和远方！",
+    "📖 读一本好书，陶冶情操！",
+    "🎨 发挥创意，做点手工或画画！",
+    "📱 和朋友聊聊天，分享生活点滴！",
+    "🧘 冥想或瑜伽，平静内心！",
+    "🌿 亲近自然，呼吸新鲜空气！",
+    "🎵 听听播客，学习新知识！",
+    "🍰 吃点甜食，提升幸福感！",
+    "🌙 晚安，好梦！",
+    "💝 感谢今天的努力，明天继续加油！",
+    "✨ 你今天做得很好，值得表扬！",
+    "🌟 保持微笑，明天会更好！",
+    "🎉 下班啦！自由时间开始！",
+    "🌞 享受阳光，温暖心灵！",
+    "📝 写写日记，记录美好瞬间！"
+]
+
+WEEKEND_MESSAGES = [
+    "🎉 周末快乐！好好休息，享受美好时光！",
+    "🌞 阳光明媚，适合出门走走！",
+    "📺 窝在沙发上看部好电影吧！",
+    "🍲 美食治愈一切，吃顿好的！",
+    "📚 读一本好书，充实心灵！",
+    "🎮 放松一下，玩玩游戏！",
+    "🏃 运动一下，保持活力！",
+    "💝 和家人朋友聚聚，分享快乐！",
+    "🌿 亲近自然，呼吸新鲜空气！",
+    "😴 睡个好觉，充分休息！"
+]
 
 def get_token(app_id, app_secret):
     url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
@@ -54,6 +101,28 @@ def send_message(token, chat_id, message):
     
     return data.get("code") == 0
 
+def is_weekend():
+    # 北京时区，判断是否是周末
+    now = datetime.now()
+    # GitHub Actions 默认是 UTC 时间，需要 +8 小时
+    # 简单起见，我们使用 UTC 时间判断
+    # UTC 0:00 = 北京 8:00
+    # 所以 UTC 星期几 +1 就是北京星期几
+    # 如果 UTC 是周五（5），北京是周六（6）
+    # 如果 UTC 是周六（6），北京是周日（7）
+    # 如果 UTC 是周日（0），北京是周一（1）
+    
+    weekday = now.weekday()  # 0=周一, 6=周日
+    print(f"📅 UTC 星期: {weekday}")
+    print(f"📅 北京星期: {(weekday + 1) % 7}")
+    
+    # 北京时间: (weekday + 1) % 7
+    # 0=周日, 1=周一, 2=周二, 3=周三, 4=周四, 5=周五, 6=周六
+    beijing_weekday = (weekday + 1) % 7
+    
+    # 0=周日, 6=周六 是周末
+    return beijing_weekday == 0 or beijing_weekday == 6
+
 def main():
     app_id = os.environ.get("FEISHU_APP_ID")
     app_secret = os.environ.get("FEISHU_APP_SECRET")
@@ -74,6 +143,18 @@ def main():
         print("❌ 没有找到任何群聊")
         sys.exit(1)
     
+    # 判断工作日还是周末
+    if is_weekend():
+        print("📅 今天是周末")
+        messages = WEEKEND_MESSAGES
+    else:
+        print("📅 今天是工作日")
+        messages = WORKDAY_MESSAGES
+    
+    # 随机选择一条消息
+    message = random.choice(messages)
+    print(f"📝 选中的消息: {message}")
+    
     print("📤 开始发送消息...")
     
     success_count = 0
@@ -82,8 +163,6 @@ def main():
     for chat in chats:
         chat_id = chat.get("chat_id")
         chat_name = chat.get("name", "未命名")
-        
-        message = "🌅 下班快乐！"
         
         print(f"  发送到「{chat_name}」...")
         
