@@ -1,0 +1,11 @@
+name: 飞书下班祝福
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 测试步骤
+        run: echo "测试工作流"
