@@ -11,11 +11,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 安装 jq
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
-
       - name: 检查时间
         run: |
           echo "📅 当前时间信息："
@@ -53,13 +48,13 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"app_id\":\"$APP_ID\",\"app_secret\":\"$APP_SECRET\"}")
 
-          TOKEN=$(echo "$RESPONSE" | jq -r '.tenant_access_token')
-          CODE=$(echo "$RESPONSE" | jq -r '.code')
+          TOKEN=$(echo "$RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tenant_access_token', ''))")
+          CODE=$(echo "$RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin).get('code', -1))")
 
-          if [ "$CODE" != "0" ] || [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
+          if [ "$CODE" != "0" ] || [ -z "$TOKEN" ]; then
             echo "❌ 获取 token 失败"
             echo "错误码: $CODE"
-            echo "错误信息: $(echo $RESPONSE | jq -r '.msg')"
+            echo "错误信息: $(echo $RESPONSE | python3 -c "import sys, json; print(json.load(sys.stdin).get('msg', 'unknown'))")"
             exit 1
           fi
 
@@ -77,12 +72,12 @@ jobs:
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json")
 
-          CODE=$(echo "$RESPONSE" | jq -r '.code')
+          CODE=$(echo "$RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin).get('code', -1))")
 
           if [ "$CODE" != "0" ]; then
             echo "❌ 获取群聊列表失败"
             echo "错误码: $CODE"
-            echo "错误信息: $(echo $RESPONSE | jq -r '.msg')"
+            echo "错误信息: $(echo $RESPONSE | python3 -c "import sys, json; print(json.load(sys.stdin).get('msg', 'unknown'))")"
             exit 1
           fi
 
@@ -96,20 +91,29 @@ jobs:
 
           echo "解析群聊信息..."
 
-          CHAT_COUNT=$(echo "$RESPONSE" | jq '.data.items | length')
-          echo "群聊数量: $CHAT_COUNT"
+          python3 << 'EOF'
+import sys, json
 
-          if [ "$CHAT_COUNT" -eq 0 ]; then
-            echo "❌ 没有找到任何群聊"
-            echo "请确保机器人已添加到群聊"
-            exit 1
-          fi
+data = json.loads(sys.stdin.read())
+chats = data.get('data', {}).get('items', [])
 
-          echo "✅ 找到 $CHAT_COUNT 个群聊"
-          echo ""
+print(f"群聊数量: {len(chats)}")
 
-          echo "群聊列表："
-          echo "$RESPONSE" | jq -r '.data.items[] | "  - \(.name // \"未命名\") (ID: \(.chat_id))"'
+if len(chats) == 0:
+    print("❌ 没有找到任何群聊")
+    print("请确保机器人已添加到群聊")
+    sys.exit(1)
+
+print("✅ 找到 {} 个群聊".format(len(chats)))
+print("")
+print("群聊列表：")
+
+for chat in chats:
+    name = chat.get('name', '未命名')
+    chat_id = chat.get('chat_id', '')
+    print(f"  - {name} (ID: {chat_id})")
+EOF
+          echo "$RESPONSE" >> $GITHUB_OUTPUT
 
       - name: 发送消息到群聊
         id: send_messages
@@ -130,51 +134,87 @@ jobs:
           echo "发送文案: $MESSAGE"
           echo ""
 
-          CHATS=$(echo "$RESPONSE" | jq -r '.data.items[] | @base64')
+          python3 << 'PYEOF'
+import sys, json, subprocess, os
 
-          SUCCESS_COUNT=0
-          FAIL_COUNT=0
+# 从环境变量获取
+token = os.environ.get('TOKEN', '')
+response = os.environ.get('RESPONSE', '')
+is_weekend = os.environ.get('IS_WEEKEND', 'false') == 'true'
 
-          while IFS= read -r chat; do
-            chat_data=$(echo "$chat" | base64 -d)
-            chat_id=$(echo "$chat_data" | jq -r '.chat_id')
-            chat_name=$(echo "$chat_data" | jq -r '.name // "未命名"')
+# 选择消息
+if is_weekend:
+    message = "🎉 周末快乐！好好休息，享受美好时光！"
+else:
+    message = "🌅 又是充实的一天，辛苦了！愿你傍晚时光轻松惬意！"
 
-            echo "📤 发送到「$chat_name」 (ID: $chat_id)..."
+print(f"发送文案: {message}")
+print("")
 
-            SEND_RESPONSE=$(curl -s -X POST "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id" \
-              -H "Authorization: Bearer $TOKEN" \
-              -H "Content-Type: application/json" \
-              -d "{\"receive_id\":\"$chat_id\",\"msg_type\":\"text\",\"content\":\"{\\\"text\\\":\\\"$MESSAGE\\\"}\"}")
+# 解析群聊列表
+data = json.loads(response)
+chats = data.get('data', {}).get('items', [])
 
-            echo "发送响应: $SEND_RESPONSE"
+success_count = 0
+fail_count = 0
 
-            SEND_CODE=$(echo "$SEND_RESPONSE" | jq -r '.code')
+for chat in chats:
+    chat_id = chat.get('chat_id', '')
+    chat_name = chat.get('name', '未命名')
+    
+    print(f"📤 发送到「{chat_name}」 (ID: {chat_id})...")
+    
+    # 发送消息
+    send_url = f"https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "receive_id": chat_id,
+        "msg_type": "text",
+        "content": json.dumps({"text": message})
+    }
+    
+    result = subprocess.run([
+        'curl', '-s', '-X', 'POST', send_url,
+        '-H', f"Authorization: Bearer {token}",
+        '-H', 'Content-Type: application/json',
+        '-d', json.dumps(payload)
+    ], capture_output=True, text=True)
+    
+    send_response = result.stdout
+    print(f"发送响应: {send_response}")
+    
+    send_data = json.loads(send_response)
+    send_code = send_data.get('code', -1)
+    
+    if send_code == 0:
+        print("✅ 发送成功")
+        success_count += 1
+    else:
+        print("❌ 发送失败")
+        print(f"错误码: {send_code}")
+        print(f"错误信息: {send_data.get('msg', 'unknown')}")
+        fail_count += 1
+    
+    print("")
 
-            if [ "$SEND_CODE" == "0" ]; then
-              echo "✅ 发送成功"
-              ((SUCCESS_COUNT++))
-            else
-              echo "❌ 发送失败"
-              echo "错误码: $SEND_CODE"
-              echo "错误信息: $(echo $SEND_RESPONSE | jq -r '.msg')"
-              ((FAIL_COUNT++))
-            fi
+print("=" * 32)
+print("📊 发送完成")
+print("=" * 32)
+print(f"✅ 成功: {success_count} 个群聊")
+print(f"❌ 失败: {fail_count} 个群聊")
+print("=" * 32)
 
-            echo ""
-          done <<< "$CHATS"
-
-          echo "================================"
-          echo "📊 发送完成"
-          echo "================================"
-          echo "✅ 成功: $SUCCESS_COUNT 个群聊"
-          echo "❌ 失败: $FAIL_COUNT 个群聊"
-          echo "================================"
-
-          if [ "$SUCCESS_COUNT" -eq 0 ]; then
-            echo "❌ 所有群聊发送失败"
-            exit 1
-          fi
+if success_count == 0:
+    print("❌ 所有群聊发送失败")
+    sys.exit(1)
+PYEOF
+        env:
+          TOKEN: ${{ steps.get_token.outputs.token }}
+          RESPONSE: ${{ steps.get_chats.outputs.response }}
+          IS_WEEKEND: ${{ env.IS_WEEKEND }}
 
       - name: 执行完成
         if: always()
