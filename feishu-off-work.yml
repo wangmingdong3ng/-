@@ -1,4 +1,4 @@
-# -name: 飞书下班祝福
+name: 飞书下班祝福
 
 on:
   schedule:
