@@ -77,4 +77,158 @@ def get_chats(token):
     response = requests.get(url, headers=headers, params=params)
     data = response.json()
     
-    if data.get("code") !=
+    if data.get("code") != 0:
+        print(f"❌ 获取群聊列表失败: {data.get('msg')}")
+        sys.exit(1)
+    
+    return data.get("data", {}).get("items", [])
+
+def create_card(message, is_weekend):
+    """创建飞书卡片"""
+    
+    # 根据工作日/周末选择不同的主题色和图标
+    if is_weekend:
+        title = "🎉 周末祝福"
+        color = "green"
+        icon = "🌞"
+    else:
+        title = "🌅 下班祝福"
+        color = "blue"
+        icon = "💼"
+    
+    # 获取当前北京时间
+    now = datetime.now()
+    beijing_time = (now + datetime.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
+    
+    card = {
+        "config": {
+            "wide_screen_mode": True
+        },
+        "header": {
+            "title": {
+                "content": f"{icon} {title}",
+                "tag": "plain_text"
+            },
+            "template": color
+        },
+        "elements": [
+            {
+                "tag": "div",
+                "text": {
+                    "content": message,
+                    "tag": "lark_md"
+                }
+            },
+            {
+                "tag": "hr"
+            },
+            {
+                "tag": "div",
+                "text": {
+                    "content": f"⏰ {beijing_time}",
+                    "tag": "plain_text"
+                },
+                "extra": {
+                    "style": {
+                        "align": "right",
+                        "color": "grey"
+                    }
+                }
+            }
+        ]
+    }
+    
+    return card
+
+def send_message(token, chat_id, message, is_weekend):
+    """发送消息（卡片格式）"""
+    url = "https://open.feishu.cn/open-apis/im/v1/messages"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    params = {"receive_id_type": "chat_id"}
+    
+    # 创建卡片
+    card = create_card(message, is_weekend)
+    
+    payload = {
+        "receive_id": chat_id,
+        "msg_type": "interactive",
+        "content": json.dumps(card)
+    }
+    
+    response = requests.post(url, headers=headers, params=params, json=payload)
+    data = response.json()
+    
+    return data.get("code") == 0
+
+def is_weekend():
+    """判断是否是周末（北京时间）"""
+    now = datetime.now()
+    weekday = now.weekday()  # 0=周一, 6=周日
+    
+    # 北京时间: (weekday + 1) % 7
+    beijing_weekday = (weekday + 1) % 7
+    
+    # 0=周日, 6=周六 是周末
+    return beijing_weekday == 0 or beijing_weekday == 6
+
+def main():
+    app_id = os.environ.get("FEISHU_APP_ID")
+    app_secret = os.environ.get("FEISHU_APP_SECRET")
+    
+    if not app_id or not app_secret:
+        print("❌ 缺少 FEISHU_APP_ID 或 FEISHU_APP_SECRET 环境变量")
+        sys.exit(1)
+    
+    print("🔑 获取飞书 Token...")
+    token = get_token(app_id, app_secret)
+    print("✅ Token 获取成功")
+    
+    print("📋 获取群聊列表...")
+    chats = get_chats(token)
+    print(f"✅ 找到 {len(chats)} 个群聊")
+    
+    if len(chats) == 0:
+        print("❌ 没有找到任何群聊")
+        sys.exit(1)
+    
+    # 判断工作日还是周末
+    is_weekend_day = is_weekend()
+    if is_weekend_day:
+        print("📅 今天是周末")
+        messages = WEEKEND_MESSAGES
+    else:
+        print("📅 今天是工作日")
+        messages = WORKDAY_MESSAGES
+    
+    # 随机选择一条消息
+    message = random.choice(messages)
+    print(f"📝 选中的消息: {message}")
+    
+    print("📤 开始发送消息...")
+    
+    success_count = 0
+    fail_count = 0
+    
+    for chat in chats:
+        chat_id = chat.get("chat_id")
+        chat_name = chat.get("name", "未命名")
+        
+        print(f"  发送到「{chat_name}」...")
+        
+        if send_message(token, chat_id, message, is_weekend_day):
+            print(f"  ✅ 发送成功")
+            success_count += 1
+        else:
+            print(f"  ❌ 发送失败")
+            fail_count += 1
+    
+    print("=" * 32)
+    print(f"✅ 成功: {success_count} 个群聊")
+    print(f"❌ 失败: {fail_count} 个群聊")
+    print("=" * 32)
+
+if __name__ == "__main__":
+    main()
