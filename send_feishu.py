@@ -158,10 +158,25 @@ def send_message(token, chat_id, message, is_weekend):
         "content": json.dumps(card)
     }
     
-    response = requests.post(url, headers=headers, params=params, json=payload)
-    data = response.json()
+    print(f"    请求URL: {url}")
+    print(f"    请求参数: {params}")
+    print(f"    请求体: {json.dumps(payload, ensure_ascii=False)[:200]}...")
     
-    return data.get("code") == 0
+    response = requests.post(url, headers=headers, params=params, json=payload)
+    
+    print(f"    HTTP状态码: {response.status_code}")
+    print(f"    响应内容: {response.text}")
+    
+    data = response.json()
+    code = data.get("code", -1)
+    msg = data.get("msg", "unknown")
+    
+    if code == 0:
+        print(f"    ✅ 发送成功")
+        return True
+    else:
+        print(f"    ❌ 发送失败: 错误码={code}, 错误信息={msg}")
+        return False
 
 def is_weekend():
     """判断是否是周末（北京时间）"""
@@ -219,10 +234,8 @@ def main():
         print(f"  发送到「{chat_name}」...")
         
         if send_message(token, chat_id, message, is_weekend_day):
-            print(f"  ✅ 发送成功")
             success_count += 1
         else:
-            print(f"  ❌ 发送失败")
             fail_count += 1
     
     print("=" * 32)
