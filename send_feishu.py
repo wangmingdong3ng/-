@@ -235,6 +235,29 @@ WEEKEND_MESSAGES = [
     "周末充电！"
 ]
 
+def load_config():
+    """加载配置文件"""
+    config_path = "feishu_config.json"
+    
+    if not os.path.exists(config_path):
+        # 创建默认配置
+        default_config = {
+            "default_time": "17:55",
+            "chats": {}
+        }
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(default_config, f, ensure_ascii=False, indent=2)
+        return default_config
+    
+    with open(config_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_config(config):
+    """保存配置文件"""
+    config_path = "feishu_config.json"
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
+
 def get_token(app_id, app_secret):
     url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
     headers = {"Content-Type": "application/json"}
@@ -265,6 +288,33 @@ def get_chats(token):
         sys.exit(1)
     
     return data.get("data", {}).get("items", [])
+
+def should_send_now(chat_id, config):
+    """检查当前时间是否匹配该群的推送时间"""
+    # 获取当前北京时间
+    now = datetime.now()
+    beijing_now = now + timedelta(hours=8)
+    current_time = beijing_now.strftime("%H:%M")
+    current_minute = beijing_now.strftime("%H:%M")
+    
+    # 检查该群是否有独立配置
+    if chat_id in config["chats"]:
+        chat_config = config["chats"][chat_id]
+        if not chat_config.get("enabled", True):
+            print(f"    ⏭️  该群已禁用")
+            return False
+        
+        target_time = chat_config.get("time", config["default_time"])
+    else:
+        target_time = config["default_time"]
+    
+    print(f"    🕐 当前时间: {current_minute}, 目标时间: {target_time}")
+    
+    # 检查当前时间是否匹配目标时间（只匹配小时和分钟）
+    if current_time == target_time:
+        return True
+    
+    return False
 
 def create_card(message, is_weekend):
     """创建飞书卡片"""
@@ -371,6 +421,11 @@ def main():
     token = get_token(app_id, app_secret)
     print("✅ Token 获取成功")
     
+    print("📋 加载配置文件...")
+    config = load_config()
+    print(f"✅ 默认推送时间: {config['default_time']}")
+    print(f"✅ 已配置的群数量: {len(config['chats'])}")
+    
     print("📋 获取群聊列表...")
     chats = get_chats(token)
     print(f"✅ 找到 {len(chats)} 个群聊")
@@ -392,25 +447,31 @@ def main():
     message = random.choice(messages)
     print(f"📝 选中的消息: {message}")
     
-    print("📤 开始发送消息...")
+    print("📤 开始检查并发送消息...")
     
     success_count = 0
     fail_count = 0
+    skipped_count = 0
     
     for chat in chats:
         chat_id = chat.get("chat_id")
         chat_name = chat.get("name", "未命名")
         
-        print(f"  发送到「{chat_name}」...")
+        print(f"  检查群聊「{chat_name}」...")
         
-        if send_message(token, chat_id, message, is_weekend_day):
-            success_count += 1
+        # 检查是否需要发送
+        if should_send_now(chat_id, config):
+            if send_message(token, chat_id, message, is_weekend_day):
+                success_count += 1
+            else:
+                fail_count += 1
         else:
-            fail_count += 1
+            skipped_count += 1
     
     print("=" * 32)
-    print(f"✅ 成功: {success_count} 个群聊")
-    print(f"❌ 失败: {fail_count} 个群聊")
+    print(f"✅ 成功发送: {success_count} 个群聊")
+    print(f"❌ 发送失败: {fail_count} 个群聊")
+    print(f"⏭️  跳过（时间未到）: {skipped_count} 个群聊")
     print("=" * 32)
 
 if __name__ == "__main__":
