@@ -4,7 +4,7 @@ import sys
 import json
 import requests
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # 文案库
 WORKDAY_MESSAGES = [
@@ -98,7 +98,7 @@ def create_card(message, is_weekend):
     
     # 获取当前北京时间
     now = datetime.now()
-    beijing_time = (now + datetime.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
+    beijing_time = (now + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
     
     card = {
         "config": {
