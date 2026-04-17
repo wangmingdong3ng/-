@@ -96,8 +96,9 @@ def create_card(message, is_weekend):
         color = "blue"
         icon = "💼"
     
-    # 获取当前北京时间
+    # 获取当前时间（UTC）
     now = datetime.now()
+    # 北京时间 = UTC + 8
     beijing_time = (now + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
     
     card = {
@@ -125,14 +126,8 @@ def create_card(message, is_weekend):
             {
                 "tag": "div",
                 "text": {
-                    "content": f"⏰ {beijing_time}",
+                    "content": f"⏰ 发送时间：{beijing_time}",
                     "tag": "plain_text"
-                },
-                "extra": {
-                    "style": {
-                        "align": "right",
-                        "color": "grey"
-                    }
                 }
             }
         ]
@@ -158,15 +153,7 @@ def send_message(token, chat_id, message, is_weekend):
         "content": json.dumps(card)
     }
     
-    print(f"    请求URL: {url}")
-    print(f"    请求参数: {params}")
-    print(f"    请求体: {json.dumps(payload, ensure_ascii=False)[:200]}...")
-    
     response = requests.post(url, headers=headers, params=params, json=payload)
-    
-    print(f"    HTTP状态码: {response.status_code}")
-    print(f"    响应内容: {response.text}")
-    
     data = response.json()
     code = data.get("code", -1)
     msg = data.get("msg", "unknown")
