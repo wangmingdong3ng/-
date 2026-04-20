@@ -6,7 +6,7 @@ import requests
 import random
 from datetime import datetime, timedelta, timezone
 
-# 工作日文案（100条）- 轻松有趣
+# 工作日文案（周一到周四，80条）
 WORKDAY_MESSAGES = [
     # 下班开心类
     "忙碌一天终于落幕，顺利下班，身心终于得到彻底解放。",
@@ -114,9 +114,11 @@ WORKDAY_MESSAGES = [
     "工作文件资料尤为重要，日常妥善留存，记得定时备份文件。",
     "结束整日办公忙碌时刻，离开工位之前，记得细心关闭电脑。",
     "天气变幻莫测难以预料，出门在外时刻，随身记得带上雨伞。",
-    "奔波生活兼顾所有琐事，万事之余最重要，记得好好爱自己。",
-    
-    # 周末预告类
+    "奔波生活兼顾所有琐事，万事之余最重要，记得好好爱自己。"
+]
+
+# 周五文案（周末预告类，10条）
+FRIDAY_MESSAGES = [
     "平淡工作日悄然流逝，美好假期渐近，惬意周末即将抵达。",
     "再咬牙坚持忙碌几日时光，熬过工作日，轻松周末就到来。",
     "满心期待美好周末来临，脑海思绪纷飞，好奇周末该做何事。",
@@ -126,22 +128,10 @@ WORKDAY_MESSAGES = [
     "辛苦忙碌积攒所有疲惫，周末时光来临，奔赴丰盛美食盛宴。",
     "抛开所有工作束缚烦恼，迎来自由周末，尽情放肆欢乐玩耍。",
     "挣脱工作日紧绷的束缚，无琐事无忙碌，周末自在舒适畅快。",
-    "熬过漫长枯燥工作日，迎来专属闲暇，愿整个周末轻松愉快。",
-    
-    # 随心所欲类
-    "挣脱所有世俗束缚顾虑，遵从内心所想，随心自在做喜欢事。",
-    "抛开旁人所有是非评价，无需迁就他人，万事随心随意就好。",
-    "不必纠结过往烦恼琐事，放下所有顾虑，随心快乐便是至上。",
-    "生活不必背负太多思绪，减少无谓思虑，轻松自在度过日常。",
-    "不被世俗规矩束缚身心，遵从本心生活，万事随心自在而行。",
-    "卸下所有伪装与束缚枷锁，抛开所有顾虑，尽情释放真实自我。",
-    "难得闲暇自由宝贵时光，奔赴心之所向，做热爱欢喜的事情。",
-    "漫漫人生岁月十分短暂，不必委屈自身，一生开心最为重要。",
-    "世间万事不必过分拘束，遵从内心欢喜，自在快乐永远排首位。",
-    "挣脱生活所有条条框框，无需刻意拘束，随心随性自在生活。"
+    "熬过漫长枯燥工作日，迎来专属闲暇，愿整个周末轻松愉快。"
 ]
 
-# 周末文案（50条）- 更加放松
+# 周末文案（周六周日，50条）
 WEEKEND_MESSAGES = [
     # 周末快乐类
     "告别一周辛苦忙碌日常，迎来悠闲周末，尽情欢快自在玩乐。",
@@ -266,7 +256,7 @@ def get_chats(token):
     
     return data.get("data", {}).get("items", [])
 
-def create_card(message, is_weekend):
+def create_card(message, is_weekend, day_type):
     """创建飞书卡片"""
     
     # 调试：打印时间信息
@@ -277,14 +267,19 @@ def create_card(message, is_weekend):
     print(f"    设备时间（datetime.now()）: {now_device}")
     print(f"    UTC 时间（datetime.now(timezone.utc)）: {now_utc}")
     print(f"    计算的北京时间: {(now_utc + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')}")
+    print(f"    日期类型: {day_type}")
     
-    # 根据工作日/周末选择不同的主题色和图标
-    if is_weekend:
-        title = "🎉 下班啦！快跑呀！！！"
+    # 根据日期类型选择不同的主题色和图标
+    if day_type == "weekend":
+        title = "🎉 周末祝福"
         color = "green"
         icon = "🌞"
+    elif day_type == "friday":
+        title = "🎊 周末预告"
+        color = "purple"
+        icon = "🎈"
     else:
-        title = "🌅 下班啦！快跑呀！！！"
+        title = "🌅 下班祝福"
         color = "blue"
         icon = "💼"
     
@@ -327,7 +322,7 @@ def create_card(message, is_weekend):
     
     return card
 
-def send_message(token, chat_id, message, is_weekend):
+def send_message(token, chat_id, message, is_weekend, day_type):
     """发送消息（卡片格式）"""
     url = "https://open.feishu.cn/open-apis/im/v1/messages"
     headers = {
@@ -337,7 +332,7 @@ def send_message(token, chat_id, message, is_weekend):
     params = {"receive_id_type": "chat_id"}
     
     # 创建卡片
-    card = create_card(message, is_weekend)
+    card = create_card(message, is_weekend, day_type)
     
     payload = {
         "receive_id": chat_id,
@@ -357,8 +352,8 @@ def send_message(token, chat_id, message, is_weekend):
         print(f"    ❌ 发送失败: 错误码={code}, 错误信息={msg}")
         return False
 
-def is_weekend():
-    """判断是否是周末（北京时间）"""
+def get_day_type():
+    """获取日期类型（北京时间）"""
     now = datetime.now(timezone.utc)  # 使用 UTC 时间
     weekday = now.weekday()  # 0=周一, 6=周日
     
@@ -366,7 +361,12 @@ def is_weekend():
     beijing_weekday = (weekday + 1) % 7
     
     # 0=周日, 6=周六 是周末
-    return beijing_weekday == 0 or beijing_weekday == 6
+    if beijing_weekday == 0 or beijing_weekday == 6:
+        return "weekend"  # 周六周日
+    elif beijing_weekday == 5:
+        return "friday"  # 周五
+    else:
+        return "weekday"  # 周一到周四
 
 def main():
     app_id = os.environ.get("FEISHU_APP_ID")
@@ -388,14 +388,22 @@ def main():
         print("❌ 没有找到任何群聊")
         sys.exit(1)
     
-    # 判断工作日还是周末
-    is_weekend_day = is_weekend()
-    if is_weekend_day:
-        print("📅 今天是周末")
+    # 获取日期类型
+    day_type = get_day_type()
+    
+    # 根据日期类型选择文案
+    if day_type == "weekend":
+        print("📅 今天是周末（周六/周日）")
         messages = WEEKEND_MESSAGES
+        is_weekend = True
+    elif day_type == "friday":
+        print("📅 今天是周五")
+        messages = FRIDAY_MESSAGES
+        is_weekend = False
     else:
-        print("📅 今天是工作日")
+        print(f"📅 今天是工作日（周一到周四）")
         messages = WORKDAY_MESSAGES
+        is_weekend = False
     
     # 随机选择一条消息
     message = random.choice(messages)
@@ -412,7 +420,7 @@ def main():
         
         print(f"  发送到「{chat_name}」...")
         
-        if send_message(token, chat_id, message, is_weekend_day):
+        if send_message(token, chat_id, message, is_weekend, day_type):
             success_count += 1
         else:
             fail_count += 1
