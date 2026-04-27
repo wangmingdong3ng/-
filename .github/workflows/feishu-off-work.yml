@@ -2,7 +2,7 @@ name: 飞书下班祝福
 
 on:
   schedule:
-    - cron: '40 6 * * *'  # 修改为 UTC 04:40，对应北京时间 17:40
+    - cron: '40 5 * * *'  # 修改为 UTC 04:40，对应北京时间 17:40
   workflow_dispatch:
 
 jobs:
