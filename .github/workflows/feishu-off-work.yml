@@ -2,8 +2,8 @@ name: 飞书下班祝福
 
 on:
   schedule:
-    - cron: '20 3 * * 1-5'  # 工作日：周一到周五，UTC 08:20
-    - cron: '20 5 * * 0,6'  # 周末：周六周日，UTC 10:20
+    - cron: '10 2 * * 1-5'  # 工作日：周一到周五，UTC 08:20
+    - cron: '10 5 * * 0,6'  # 周末：周六周日，UTC 10:20
   workflow_dispatch:
 
 jobs:
