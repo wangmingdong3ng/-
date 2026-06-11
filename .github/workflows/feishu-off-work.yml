@@ -1,10 +1,7 @@
 name: 飞书下班祝福
 
 on:
-  schedule:
-    - cron: '10 5 * * 1'  # 工作日：周一，UTC 05:10
-    - cron: '10 6 * * 2-5'  # 工作日：周二到周五，UTC 06:10
-    - cron: '10 7 * * 0,6'  # 周末：周六周日，UTC 7:20
+  # 支持手动触发（用于测试和 EasyCron 调用）
   workflow_dispatch:
 
 jobs:
