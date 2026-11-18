@@ -1,34 +1,36 @@
 name: 飞书下班祝福
 
 on:
-  # 支持手动触发（用于测试和 EasyCron 调用）
   workflow_dispatch:
 
 jobs:
   send-off-work:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+
     steps:
-      - uses: actions/checkout@v3
-      
+      - uses: actions/checkout@v4
+
       - name: 安装 Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
-      
+          python-version: '3.11'
+          cache: 'pip'
+
       - name: 安装依赖
         run: |
-          pip install requests
-      
+          python -m pip install --upgrade pip
+          pip install requests          
+
       - name: 检查触发信息
         run: |
           echo "🔍 触发方式: ${{ github.event_name }}"
-          echo "🔍 触发时间: $(date -u)"
+          echo "🔍 触发时间(UTC): $(date -u)"
           echo "🔍 Workflow 名称: ${{ github.workflow }}"
-          echo "🔍 Run ID: ${{ github.run_id }}"
-      
+          echo "🔍 Run ID: ${{ github.run_id }}"          
+
       - name: 发送消息
         env:
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
         run: |
-          python send_feishu.py
+          python send_feishu.py          
